@@ -1,0 +1,33 @@
+# Copy to .github/workflows/optiq.yml. Add the secrets OPTIQ_CLOUD_API_KEY and OPTIQ_BOT_TOKEN.
+name: OptiQ Code
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  # Name the workflows whose failure the agent should fix.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+jobs:
+  optiq:
+    # Skips without using a runner when nobody mentioned the bot.
+    if: >-
+      github.event_name == 'pull_request_review' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') ||
+      contains(github.event.comment.body || github.event.issue.body, '@optiq-bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency: optiq-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.head_branch }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/optiq
+        with:
+          cloud-api-key: ${{ secrets.OPTIQ_CLOUD_API_KEY }}
+          github-token: ${{ secrets.OPTIQ_BOT_TOKEN }}
+          setup: pip install -r requirements.txt
